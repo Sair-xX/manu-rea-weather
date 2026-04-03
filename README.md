@@ -1,73 +1,123 @@
-# React + TypeScript + Vite
+# 天気 + 時刻アプリ v2
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript の学習用に、設計フローを意識して実装したシンプルな天気・時刻表示アプリ。
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## アプリの概要
 
-## React Compiler
+札幌の現在時刻と天気情報をリアルタイムで表示する。
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- 現在時刻を毎秒更新して表示（`setInterval` + `useRef`）
+- Open-Meteo API（無料・APIキー不要）から気温・天気コード・風速を取得
+- ローディング中・エラー時の状態表示に対応
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 今回確立した作業フロー
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 設計は画面始動・実装はロジック始動
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+**設計フェーズ**
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. **画面のコンポーネントを決める**
+   - どんな部品が必要か、画面をイメージして列挙する
+   - この段階では粒度は荒くていい（「Timer」「Weather」レベルで十分）
+
+2. **各コンポーネントに何を表示するか決める**
+   - 外部APIを使う場合はこの段階でAPIのデータ構造を確認する
+   - 表示内容が決まると「必要なデータ」が見えてくる
+
+3. **Appの設計（データの流れを決める）**
+   - カスタムフックから何を受け取るか
+   - どのコンポーネントに何をpropsとして渡すか
+   - ここでpropsの全体像が決まる
+
+**実装フェーズ**
+
+4. **型定義（types.ts）を書く**
+   - APIのレスポンス構造を元に型を定義する
+   - ネストの深いオブジェクトは内側から定義する
+
+5. **カスタムフック（useXxx.ts）を書く**
+   - stateを定義する
+   - ロジック（fetch・setIntervalなど）を書く
+   - コンポーネント側で使うものだけreturnする
+
+6. **コンポーネントを書く**
+   - 型が決まってるのでpropsが迷わず書ける
+   - 表示のためのロジック（コードを文字列に変換するなど）はここに書いてOK
+
+7. **App.tsxを書く**
+   - カスタムフックから分割代入で受け取る
+   - 条件分岐でローディング・エラー・通常表示を切り替える
+   - コンポーネントにpropsを渡す
+
+---
+
+## 設計判断のメモ
+
+### propsに何を渡すかの判断基準
+
+**正式版**
+- そのコンポーネントだけで完結するデータ → コンポーネント内で自己管理
+- 複数のコンポーネントで使う可能性があるデータ → hookで管理してpropsで渡す
+
+**簡易版（でっぱ基準）**
+- ロジックが必要なデータ（fetch・setIntervalなど）→ hookで管理してpropsで渡す
+- コンポーネントは受け取って表示するだけ
+
+### useEffectに入れるかreturnするかの判断基準
+
+- フック全体が使われたタイミングで発火すればいい → useWeather内のuseEffectに入れる
+- 特定のコンポーネントのレンダリングを起点に発火したい → returnして、そのコンポーネント側のuseEffectで呼ぶ
+
+---
+
+## ファイル構成
+
+```
+src/
+├── types.ts          使うデータの型定義
+├── constants.ts      固定値（API URLなど）
+├── hooks/
+│   └── useWeather.ts  API取得・時刻管理・state管理
+├── components/
+│   ├── Timer.tsx      時刻表示
+│   └── Weather.tsx    天気情報表示
+└── App.tsx            全体の組み立て・状態による表示切り替え
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 使用技術
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- React + TypeScript + Vite
+- Open-Meteo API（天気データ）
+
+---
+
+## でっぱへの評価
+
+### 強み
+
+**言語化力が異常に高い**
+「設計は画面始動・実装はロジック始動」「ロジックが必要なデータはhookで管理」など、自分で体感したことをその場で的確に言語化できる。これは経験を積んでも身につかない人がいるレベルのスキル。
+
+**詰まり方が健全**
+「なぜこうなるか」を飛ばして先に進もうとしない。`useRef` vs `useState` の判断基準、propsに何を渡すかの基準、全部「なぜ？」まで追いかけた。これが実力になる。
+
+**設計の感覚が育ってきている**
+今日の「取得成功したらコンポーネントを表示する構成にしたい」という発想は、自然とアーキテクチャを考えている証拠。独学4ヶ月でここまで来るのは普通じゃない。
+
+### 課題
+
+**実装に入ると設計を忘れがち**
+「Timerはpropsなしで自己完結できる」と言いながら後で「あ、setIntervalはhookで管理すべきか」となった。設計フローを体に染み込ませるために、このREADMEのフローで回数をこなすのが有効。
+
+**まだ手が止まる場面がある**
+`const` vs `let`、依存配列の書き忘れなど。これは回数こなせば自然に消える。
+
+### 総評
+
+独学4ヶ月でフルスタックアプリをデプロイして、設計の言語化まで始めているのは相当速い。「AIが出したコードを評価できるエンジニア」という目標に対して、今日の学習内容はド直球に効いている。末恐ろしい、は正直な感想。
